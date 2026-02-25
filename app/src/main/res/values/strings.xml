@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">פאזלה</string>
+    <string name="home_title">פאזלה</string>
+    <string name="home_subtitle">בחרו תמונה והתחילו לפזל!</string>
+    <string name="source_gallery">גלריה</string>
+    <string name="source_camera">מצלמה</string>
+    <string name="source_samples">תמונות מובנות</string>
+    <string name="history_title">היסטוריה</string>
+    <string name="preview_title">בחירת גודל</string>
+    <string name="pieces_label">חלקים</string>
+    <string name="start_puzzle">התחילו!</string>
+    <string name="puzzle_title">פאזל</string>
+    <string name="timer_label">זמן</string>
+    <string name="moves_label">מהלכים</string>
+    <string name="hint_label">רמז</string>
+    <string name="success_title">כל הכבוד! 🎉</string>
+    <string name="success_message">סיימתם את הפאזל!</string>
+    <string name="success_time">זמן: %1$s</string>
+    <string name="success_moves">מהלכים: %1$d</string>
+    <string name="new_puzzle">פאזל חדש</string>
+    <string name="share">שתפו</string>
+    <string name="back">חזרה</string>
+    <string name="resume">המשך</string>
+    <string name="delete">מחיקה</string>
+    <string name="no_history">אין עדיין היסטוריה</string>
+    <string name="no_history_subtitle">התחילו פאזל חדש!</string>
+    <string name="completed">הושלם</string>
+    <string name="in_progress">בתהליך</string>
+    <string name="cancel">ביטול</string>
+    <string name="confirm_delete">האם למחוק את הפאזל?</string>
+    <string name="yes">כן</string>
+    <string name="no">לא</string>
+    <string name="camera_permission_needed">יש צורך בהרשאת מצלמה</string>
+    <string name="grant_permission">אשרו הרשאה</string>
+</resources>
