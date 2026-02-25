@@ -14,10 +14,11 @@ data class PuzzlePiece(
     val row: Int,
     val col: Int,
     val bitmap: Bitmap,
-    val correctPosition: Offset,
+    var correctPosition: Offset,
     var currentPosition: Offset,
     val width: Float,
-    val height: Float
+    val height: Float,
+    var isLocked: Boolean = false
 ) {
     fun isAtCorrectPosition(threshold: Float = 30f): Boolean {
         val dx = currentPosition.x - correctPosition.x
@@ -66,8 +67,8 @@ class PuzzlePieceGenerator {
                     srcPieceW, srcPieceH, pieceWidth, pieceHeight, tabSize
                 )
 
-                val correctX = col * pieceWidth
-                val correctY = row * pieceHeight
+                val correctX = col * pieceWidth - tabSize
+                val correctY = row * pieceHeight - tabSize
 
                 pieces.add(
                     PuzzlePiece(
@@ -163,44 +164,67 @@ class PuzzlePieceGenerator {
         }
 
         val sign = if (type == ConnectorType.TAB) -1f else 1f
-        val actualSign = if (reversed) -sign else sign
+        val s = if (reversed) -sign else sign
 
         if (isHorizontal) {
-            val midX = (startX + endX) / 2
-            val len = endX - startX
-            val third = len / 3
+            val mid = (startX + endX) / 2f
+            val dir = if (endX > startX) 1f else -1f
+            val absLen = kotlin.math.abs(endX - startX)
+            val neckHalf = absLen * 0.12f
+            val headR = tabSize * 0.42f
+            val depth = tabSize * 0.85f
 
-            path.lineTo(startX + third, startY)
+            // Straight to neck start
+            path.lineTo(mid - dir * neckHalf, startY)
 
-            // Bezier curve for tab/blank
+            // Neck to head (left side)
             path.cubicTo(
-                startX + third, startY + actualSign * tabSize * 0.2f,
-                midX - tabSize * 0.5f, startY + actualSign * tabSize,
-                midX, startY + actualSign * tabSize
+                mid - dir * neckHalf, startY + s * depth * 0.4f,
+                mid - dir * headR, startY + s * depth * 0.4f,
+                mid - dir * headR, startY + s * depth * 0.65f
             )
+            // Round head top
             path.cubicTo(
-                midX + tabSize * 0.5f, startY + actualSign * tabSize,
-                startX + 2 * third, startY + actualSign * tabSize * 0.2f,
-                startX + 2 * third, startY
+                mid - dir * headR, startY + s * depth * 1.05f,
+                mid + dir * headR, startY + s * depth * 1.05f,
+                mid + dir * headR, startY + s * depth * 0.65f
+            )
+            // Head to neck (right side)
+            path.cubicTo(
+                mid + dir * headR, startY + s * depth * 0.4f,
+                mid + dir * neckHalf, startY + s * depth * 0.4f,
+                mid + dir * neckHalf, startY
             )
 
             path.lineTo(endX, endY)
         } else {
-            val midY = (startY + endY) / 2
-            val len = endY - startY
-            val third = len / 3
+            val mid = (startY + endY) / 2f
+            val dir = if (endY > startY) 1f else -1f
+            val absLen = kotlin.math.abs(endY - startY)
+            val neckHalf = absLen * 0.12f
+            val headR = tabSize * 0.42f
+            val depth = tabSize * 0.85f
 
-            path.lineTo(startX, startY + third)
+            // Straight to neck start
+            path.lineTo(startX, mid - dir * neckHalf)
 
+            // Neck to head (top side)
             path.cubicTo(
-                startX + actualSign * tabSize * 0.2f, startY + third,
-                startX + actualSign * tabSize, midY - tabSize * 0.5f,
-                startX + actualSign * tabSize, midY
+                startX + s * depth * 0.4f, mid - dir * neckHalf,
+                startX + s * depth * 0.4f, mid - dir * headR,
+                startX + s * depth * 0.65f, mid - dir * headR
             )
+            // Round head
             path.cubicTo(
-                startX + actualSign * tabSize, midY + tabSize * 0.5f,
-                startX + actualSign * tabSize * 0.2f, startY + 2 * third,
-                startX, startY + 2 * third
+                startX + s * depth * 1.05f, mid - dir * headR,
+                startX + s * depth * 1.05f, mid + dir * headR,
+                startX + s * depth * 0.65f, mid + dir * headR
+            )
+            // Head to neck (bottom side)
+            path.cubicTo(
+                startX + s * depth * 0.4f, mid + dir * headR,
+                startX + s * depth * 0.4f, mid + dir * neckHalf,
+                startX, mid + dir * neckHalf
             )
 
             path.lineTo(endX, endY)
@@ -228,10 +252,8 @@ class PuzzlePieceGenerator {
         // Apply source bitmap with SRC_IN to clip
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
 
-        val srcLeft = col * srcPieceW - (tabSize * srcPieceW / dstPieceW)
-        val srcTop = row * srcPieceH - (tabSize * srcPieceH / dstPieceH)
-        val srcRight = srcLeft + bmpW * (srcPieceW / dstPieceW) * (bmpW.toFloat() / dstPieceW) * (dstPieceW / bmpW.toFloat())
-        val srcBottom = srcTop + bmpH * (srcPieceH / dstPieceH) * (bmpH.toFloat() / dstPieceH) * (dstPieceH / bmpH.toFloat())
+        val srcLeft = (col * srcPieceW - tabSize * srcPieceW / dstPieceW)
+        val srcTop = (row * srcPieceH - tabSize * srcPieceH / dstPieceH)
 
         val srcRect = android.graphics.Rect(
             maxOf(0, srcLeft.toInt()),

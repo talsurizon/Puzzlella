@@ -5,12 +5,15 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 class PuzzleBoard(
-    val pieces: List<PuzzlePiece>,
+    pieces: List<PuzzlePiece>,
     val rows: Int,
     val cols: Int,
     val boardWidth: Float,
     val boardHeight: Float
 ) {
+    private val _pieces = pieces.toMutableList()
+    val pieces: List<PuzzlePiece> get() = _pieces
+
     var moves: Int = 0
         private set
 
@@ -24,25 +27,30 @@ class PuzzleBoard(
         val pieceHeight = boardHeight / rows
         val margin = 20f
 
-        pieces.forEach { piece ->
-            piece.currentPosition = Offset(
-                x = Random.nextFloat() * (areaWidth - pieceWidth - margin * 2) + margin,
-                y = Random.nextFloat() * (areaHeight - pieceHeight - margin * 2) + margin
-            )
+        _pieces.forEach { piece ->
+            if (!piece.isLocked) {
+                piece.currentPosition = Offset(
+                    x = Random.nextFloat() * (areaWidth - pieceWidth - margin * 2) + margin,
+                    y = Random.nextFloat() * (areaHeight - pieceHeight - margin * 2) + margin
+                )
+            }
         }
     }
 
     fun movePiece(pieceId: Int, newPosition: Offset) {
-        val piece = pieces.find { it.id == pieceId } ?: return
+        val piece = _pieces.find { it.id == pieceId } ?: return
+        if (piece.isLocked) return
         piece.currentPosition = newPosition
     }
 
     fun trySnapPiece(pieceId: Int): Boolean {
-        val piece = pieces.find { it.id == pieceId } ?: return false
+        val piece = _pieces.find { it.id == pieceId } ?: return false
+        if (piece.isLocked) return false
         moves++
 
         if (piece.isAtCorrectPosition(snapThreshold)) {
             piece.currentPosition = piece.correctPosition
+            piece.isLocked = true
             checkCompletion()
             return true
         }
@@ -50,24 +58,21 @@ class PuzzleBoard(
     }
 
     fun checkCompletion(): Boolean {
-        isCompleted = pieces.all { it.isAtCorrectPosition(1f) }
+        isCompleted = _pieces.all { it.isAtCorrectPosition(1f) }
         return isCompleted
     }
 
     fun getPieceAt(position: Offset): PuzzlePiece? {
-        // Return topmost piece (last in list) that contains the touch point
-        return pieces.lastOrNull { piece ->
+        return _pieces.lastOrNull { piece ->
             val dx = position.x - piece.currentPosition.x
             val dy = position.y - piece.currentPosition.y
             dx in 0f..piece.width && dy in 0f..piece.height
         }
     }
 
-    fun bringToFront(pieceId: Int): List<PuzzlePiece> {
-        val piece = pieces.find { it.id == pieceId } ?: return pieces
-        val mutablePieces = pieces.toMutableList()
-        mutablePieces.remove(piece)
-        mutablePieces.add(piece)
-        return mutablePieces
+    fun bringToFront(pieceId: Int) {
+        val piece = _pieces.find { it.id == pieceId } ?: return
+        _pieces.remove(piece)
+        _pieces.add(piece)
     }
 }

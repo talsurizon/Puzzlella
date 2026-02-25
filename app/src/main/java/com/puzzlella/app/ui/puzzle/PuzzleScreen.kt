@@ -87,8 +87,10 @@ fun PuzzleScreen(
 
     LaunchedEffect(canvasSize) {
         if (canvasSize.width > 0 && canvasSize.height > 0) {
-            val boardSize = minOf(canvasSize.width, canvasSize.height).toFloat() * 0.85f
-            viewModel.initializePuzzle(boardSize, boardSize)
+            viewModel.initializePuzzle(
+                canvasSize.width.toFloat(),
+                canvasSize.height.toFloat()
+            )
         }
     }
 
@@ -175,8 +177,8 @@ fun PuzzleScreen(
                             .weight(0.3f)
                             .padding(16.dp)
                     ) {
-                        val bitmap = remember(imagePath) {
-                            BitmapFactory.decodeFile(imagePath)
+                        val bitmap = remember(uiState.savedImagePath) {
+                            uiState.savedImagePath?.let { BitmapFactory.decodeFile(it) }
                         }
                         bitmap?.let {
                             Canvas(
@@ -219,8 +221,8 @@ fun PuzzleScreen(
                         exit = fadeOut(),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        val bitmap = remember(imagePath) {
-                            BitmapFactory.decodeFile(imagePath)
+                        val bitmap = remember(uiState.savedImagePath) {
+                            uiState.savedImagePath?.let { BitmapFactory.decodeFile(it) }
                         }
                         bitmap?.let {
                             Canvas(
@@ -228,13 +230,14 @@ fun PuzzleScreen(
                                     .fillMaxSize()
                                     .alpha(0.3f)
                             ) {
-                                val boardSize = minOf(size.width, size.height) * 0.85f
-                                val offsetX = (size.width - boardSize) / 2
-                                val offsetY = (size.height - boardSize) / 2
+                                val bw = uiState.boardWidth
+                                val bh = uiState.boardHeight
+                                val offsetX = (size.width - bw) / 2
+                                val offsetY = (size.height - bh) / 2
                                 translate(offsetX, offsetY) {
                                     drawImage(
                                         image = it.asImageBitmap(),
-                                        dstSize = IntSize(boardSize.toInt(), boardSize.toInt())
+                                        dstSize = IntSize(bw.toInt(), bh.toInt())
                                     )
                                 }
                             }
@@ -269,14 +272,14 @@ private fun PuzzleBoardCanvas(
 
     Canvas(
         modifier = modifier
-            .pointerInput(uiState.pieces) {
+            .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
-                        // Find piece under touch (simple hit test)
-                        val piece = uiState.pieces.lastOrNull { p ->
-                            val dx = offset.x - p.currentPosition.x
-                            val dy = offset.y - p.currentPosition.y
-                            dx in 0f..p.width && dy in 0f..p.height
+                        val currentPieces = viewModel.uiState.value.pieces
+                        val piece = currentPieces.lastOrNull { p ->
+                            !p.isLocked &&
+                            (offset.x - p.currentPosition.x) in 0f..p.width &&
+                            (offset.y - p.currentPosition.y) in 0f..p.height
                         }
                         piece?.let {
                             draggedId = it.id
@@ -304,16 +307,19 @@ private fun PuzzleBoardCanvas(
                 )
             }
     ) {
-        // Draw board background
-        val boardSize = minOf(size.width, size.height) * 0.85f
-        val offsetX = (size.width - boardSize) / 2
-        val offsetY = (size.height - boardSize) / 2
+        // Draw board background using actual board dimensions
+        val boardW = uiState.boardWidth
+        val boardH = uiState.boardHeight
+        if (boardW > 0 && boardH > 0) {
+            val offsetX = (size.width - boardW) / 2
+            val offsetY = (size.height - boardH) / 2
 
-        drawRect(
-            color = androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.2f),
-            topLeft = Offset(offsetX, offsetY),
-            size = androidx.compose.ui.geometry.Size(boardSize, boardSize)
-        )
+            drawRect(
+                color = androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.2f),
+                topLeft = Offset(offsetX, offsetY),
+                size = androidx.compose.ui.geometry.Size(boardW, boardH)
+            )
+        }
 
         // Draw pieces
         uiState.pieces.forEach { piece ->

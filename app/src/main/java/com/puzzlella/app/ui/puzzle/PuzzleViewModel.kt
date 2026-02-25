@@ -29,7 +29,8 @@ data class PuzzleUiState(
     val showSuccess: Boolean = false,
     val boardWidth: Float = 0f,
     val boardHeight: Float = 0f,
-    val draggedPieceId: Int? = null
+    val draggedPieceId: Int? = null,
+    val savedImagePath: String? = null
 )
 
 class PuzzleViewModel(
@@ -48,14 +49,45 @@ class PuzzleViewModel(
     private var historyId: Long = -1
     private var startTime: Long = System.currentTimeMillis()
 
-    fun initializePuzzle(boardWidth: Float, boardHeight: Float) {
+    fun initializePuzzle(canvasWidth: Float, canvasHeight: Float) {
         if (board != null) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            val bitmap = BitmapFactory.decodeFile(imagePath) ?: return@launch
+            // Save content URI to file, or use path directly
+            val savedPath = try {
+                val uri = android.net.Uri.parse(imagePath)
+                if (uri.scheme == "content" || uri.scheme == "file") {
+                    imageRepository.saveImage(uri)
+                } else {
+                    imagePath
+                }
+            } catch (e: Exception) {
+                imagePath
+            }
+
+            val bitmap = BitmapFactory.decodeFile(savedPath) ?: return@launch
             val config = PuzzleConfig.forPieceCount(pieceCount)
+
+            // Calculate board dimensions maintaining image aspect ratio
+            val imageAspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+            val maxBoardWidth = canvasWidth * 0.9f
+            val maxBoardHeight = canvasHeight * 0.7f
+
+            val boardWidth: Float
+            val boardHeight: Float
+
+            if (imageAspectRatio > maxBoardWidth / maxBoardHeight) {
+                boardWidth = maxBoardWidth
+                boardHeight = maxBoardWidth / imageAspectRatio
+            } else {
+                boardHeight = maxBoardHeight
+                boardWidth = maxBoardHeight * imageAspectRatio
+            }
+
+            val boardOffsetX = (canvasWidth - boardWidth) / 2
+            val boardOffsetY = (canvasHeight - boardHeight) / 2
 
             val pieces = generator.generatePieces(
                 sourceBitmap = bitmap,
@@ -65,6 +97,14 @@ class PuzzleViewModel(
                 boardHeight = boardHeight
             )
 
+            // Offset correct positions to canvas coordinates
+            pieces.forEach { piece ->
+                piece.correctPosition = Offset(
+                    piece.correctPosition.x + boardOffsetX,
+                    piece.correctPosition.y + boardOffsetY
+                )
+            }
+
             board = PuzzleBoard(
                 pieces = pieces,
                 rows = config.rows,
@@ -73,20 +113,21 @@ class PuzzleViewModel(
                 boardHeight = boardHeight
             )
 
-            board?.shufflePieces(boardWidth * 1.5f, boardHeight * 1.5f)
+            board?.shufflePieces(canvasWidth, canvasHeight)
 
             _uiState.value = _uiState.value.copy(
-                pieces = pieces,
+                pieces = board!!.pieces.toList(),
                 isLoading = false,
                 boardWidth = boardWidth,
-                boardHeight = boardHeight
+                boardHeight = boardHeight,
+                savedImagePath = savedPath
             )
 
             // Save to history
-            val thumbnailPath = imageRepository.saveThumbnail(imagePath)
+            val thumbnailPath = imageRepository.saveThumbnail(savedPath)
             historyId = puzzleRepository.insert(
                 PuzzleHistory(
-                    imagePath = imagePath,
+                    imagePath = savedPath,
                     thumbnailPath = thumbnailPath,
                     pieceCount = pieceCount,
                     status = PuzzleStatus.IN_PROGRESS,
@@ -116,9 +157,9 @@ class PuzzleViewModel(
 
     fun onPieceDragStart(pieceId: Int) {
         board?.let { b ->
-            val reordered = b.bringToFront(pieceId)
+            b.bringToFront(pieceId)
             _uiState.value = _uiState.value.copy(
-                pieces = reordered,
+                pieces = b.pieces.toList(),
                 draggedPieceId = pieceId
             )
         }
