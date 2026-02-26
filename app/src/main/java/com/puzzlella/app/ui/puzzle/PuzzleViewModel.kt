@@ -175,6 +175,10 @@ class PuzzleViewModel(
         }
     }
 
+    fun getConnectedPieceIds(pieceId: Int): Set<Int> {
+        return board?.getGroupPieceIds(pieceId) ?: emptySet()
+    }
+
     fun onPieceDragEnd(pieceId: Int) {
         board?.let { b ->
             val snapped = b.trySnapPiece(pieceId)

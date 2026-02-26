@@ -273,9 +273,10 @@ private fun PuzzleBoardCanvas(
         uiState.pieces.associate { it.id to it.bitmap.asImageBitmap() }
     }
 
-    // Local drag state — only invalidates the Canvas, bypasses ViewModel per-frame overhead
+    // Local drag state keeps movement smooth without per-frame ViewModel updates.
     var activeDragId by remember { mutableStateOf<Int?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var draggedGroupIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     Canvas(
         modifier = modifier
@@ -292,6 +293,7 @@ private fun PuzzleBoardCanvas(
                             activeDragId = it.id
                             dragOffset = Offset.Zero
                             viewModel.onPieceDragStart(it.id)
+                            draggedGroupIds = viewModel.getConnectedPieceIds(it.id)
                         }
                     },
                     onDrag = { change, dragAmount ->
@@ -302,19 +304,25 @@ private fun PuzzleBoardCanvas(
                     },
                     onDragEnd = {
                         activeDragId?.let { id ->
-                            viewModel.onPieceDrag(id, dragOffset)
+                            if (dragOffset != Offset.Zero) {
+                                viewModel.onPieceDrag(id, dragOffset)
+                            }
                             viewModel.onPieceDragEnd(id)
                         }
                         activeDragId = null
                         dragOffset = Offset.Zero
+                        draggedGroupIds = emptySet()
                     },
                     onDragCancel = {
                         activeDragId?.let { id ->
-                            viewModel.onPieceDrag(id, dragOffset)
+                            if (dragOffset != Offset.Zero) {
+                                viewModel.onPieceDrag(id, dragOffset)
+                            }
                             viewModel.onPieceDragEnd(id)
                         }
                         activeDragId = null
                         dragOffset = Offset.Zero
+                        draggedGroupIds = emptySet()
                     }
                 )
             }
@@ -333,10 +341,10 @@ private fun PuzzleBoardCanvas(
             )
         }
 
-        // Draw pieces — dragged piece uses local offset for smooth per-frame movement
+        // Draw pieces
         uiState.pieces.forEach { piece ->
             val bitmap = imageBitmaps[piece.id] ?: return@forEach
-            val pos = if (piece.id == activeDragId) {
+            val pos = if (piece.id in draggedGroupIds) {
                 piece.currentPosition + dragOffset
             } else {
                 piece.currentPosition
