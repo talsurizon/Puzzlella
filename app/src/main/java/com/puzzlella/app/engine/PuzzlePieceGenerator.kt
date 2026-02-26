@@ -47,7 +47,7 @@ class PuzzlePieceGenerator {
     ): List<PuzzlePiece> {
         val pieceWidth = boardWidth / cols
         val pieceHeight = boardHeight / rows
-        val tabSize = minOf(pieceWidth, pieceHeight) * 0.18f
+        val tabSize = minOf(pieceWidth, pieceHeight) * 0.22f
 
         val edges = generateEdgeMap(rows, cols)
         val pieces = mutableListOf<PuzzlePiece>()
@@ -166,65 +166,110 @@ class PuzzlePieceGenerator {
         val sign = if (type == ConnectorType.TAB) -1f else 1f
         val s = if (reversed) -sign else sign
 
+        // All dimensions relative to tabSize for consistent proportions regardless of piece size.
+        // headR > neckHalf ensures the knob head is visibly wider than the neck (classic jigsaw look).
+        val neckHalf    = tabSize * 0.20f  // half-width of the narrow neck
+        val headR       = tabSize * 0.36f  // radius of the round knob head (wider than neck)
+        val headCenterD = tabSize * 0.50f  // depth from edge to knob center
+        val shoulderR   = tabSize * 0.44f  // x/y distance from center to the shoulder transition
+        val shoulderDip = tabSize * 0.09f  // shoulder undercut depth (dips INTO the piece)
+        val kappa       = headR * 0.5523f  // bezier factor for quarter-circle approximation
+
         if (isHorizontal) {
             val mid = (startX + endX) / 2f
             val dir = if (endX > startX) 1f else -1f
-            val absLen = kotlin.math.abs(endX - startX)
-            val neckHalf = absLen * 0.12f
-            val headR = tabSize * 0.42f
-            val depth = tabSize * 0.85f
 
-            // Straight to neck start
-            path.lineTo(mid - dir * neckHalf, startY)
+            // Straight line up to the shoulder
+            path.lineTo(mid - dir * shoulderR, startY)
 
-            // Neck to head (left side)
+            // Left shoulder: concave dip INTO the piece body (opposite to tab/blank direction)
             path.cubicTo(
-                mid - dir * neckHalf, startY + s * depth * 0.4f,
-                mid - dir * headR, startY + s * depth * 0.4f,
-                mid - dir * headR, startY + s * depth * 0.65f
+                mid - dir * shoulderR,       startY - s * shoulderDip,
+                mid - dir * neckHalf * 1.4f, startY - s * shoulderDip,
+                mid - dir * neckHalf,        startY
             )
-            // Round head top
+
+            // Left neck side: widen from neckHalf up to headR as we approach the knob
+            val headCY = startY + s * headCenterD
             path.cubicTo(
-                mid - dir * headR, startY + s * depth * 1.05f,
-                mid + dir * headR, startY + s * depth * 1.05f,
-                mid + dir * headR, startY + s * depth * 0.65f
+                mid - dir * neckHalf, startY + s * headCenterD * 0.55f,
+                mid - dir * headR,    startY + s * headCenterD * 0.55f,
+                mid - dir * headR,    headCY
             )
-            // Head to neck (right side)
+
+            // Round knob head — two quarter-circle cubic arcs for accuracy
             path.cubicTo(
-                mid + dir * headR, startY + s * depth * 0.4f,
-                mid + dir * neckHalf, startY + s * depth * 0.4f,
+                mid - dir * headR, headCY + s * kappa,
+                mid - dir * kappa, headCY + s * headR,
+                mid,               headCY + s * headR
+            )
+            path.cubicTo(
+                mid + dir * kappa, headCY + s * headR,
+                mid + dir * headR, headCY + s * kappa,
+                mid + dir * headR, headCY
+            )
+
+            // Right neck side: narrow back from headR down to neckHalf
+            path.cubicTo(
+                mid + dir * headR,    startY + s * headCenterD * 0.55f,
+                mid + dir * neckHalf, startY + s * headCenterD * 0.55f,
                 mid + dir * neckHalf, startY
+            )
+
+            // Right shoulder: mirror of left
+            path.cubicTo(
+                mid + dir * neckHalf * 1.4f, startY - s * shoulderDip,
+                mid + dir * shoulderR,       startY - s * shoulderDip,
+                mid + dir * shoulderR,       startY
             )
 
             path.lineTo(endX, endY)
         } else {
             val mid = (startY + endY) / 2f
             val dir = if (endY > startY) 1f else -1f
-            val absLen = kotlin.math.abs(endY - startY)
-            val neckHalf = absLen * 0.12f
-            val headR = tabSize * 0.42f
-            val depth = tabSize * 0.85f
 
-            // Straight to neck start
-            path.lineTo(startX, mid - dir * neckHalf)
+            // Straight line up to the shoulder
+            path.lineTo(startX, mid - dir * shoulderR)
 
-            // Neck to head (top side)
+            // Top shoulder: concave dip INTO the piece body
             path.cubicTo(
-                startX + s * depth * 0.4f, mid - dir * neckHalf,
-                startX + s * depth * 0.4f, mid - dir * headR,
-                startX + s * depth * 0.65f, mid - dir * headR
+                startX - s * shoulderDip, mid - dir * shoulderR,
+                startX - s * shoulderDip, mid - dir * neckHalf * 1.4f,
+                startX,                   mid - dir * neckHalf
             )
-            // Round head
+
+            // Top neck side: widen from neckHalf out to headR
+            val headCX = startX + s * headCenterD
             path.cubicTo(
-                startX + s * depth * 1.05f, mid - dir * headR,
-                startX + s * depth * 1.05f, mid + dir * headR,
-                startX + s * depth * 0.65f, mid + dir * headR
+                startX + s * headCenterD * 0.55f, mid - dir * neckHalf,
+                startX + s * headCenterD * 0.55f, mid - dir * headR,
+                headCX,                            mid - dir * headR
             )
-            // Head to neck (bottom side)
+
+            // Round knob head — two quarter-circle cubic arcs
             path.cubicTo(
-                startX + s * depth * 0.4f, mid + dir * headR,
-                startX + s * depth * 0.4f, mid + dir * neckHalf,
-                startX, mid + dir * neckHalf
+                headCX + s * kappa, mid - dir * headR,
+                headCX + s * headR, mid - dir * kappa,
+                headCX + s * headR, mid
+            )
+            path.cubicTo(
+                headCX + s * headR, mid + dir * kappa,
+                headCX + s * kappa, mid + dir * headR,
+                headCX,             mid + dir * headR
+            )
+
+            // Bottom neck side: narrow back from headR down to neckHalf
+            path.cubicTo(
+                startX + s * headCenterD * 0.55f, mid + dir * headR,
+                startX + s * headCenterD * 0.55f, mid + dir * neckHalf,
+                startX,                            mid + dir * neckHalf
+            )
+
+            // Bottom shoulder: mirror of top
+            path.cubicTo(
+                startX - s * shoulderDip, mid + dir * neckHalf * 1.4f,
+                startX - s * shoulderDip, mid + dir * shoulderR,
+                startX,                   mid + dir * shoulderR
             )
 
             path.lineTo(endX, endY)
