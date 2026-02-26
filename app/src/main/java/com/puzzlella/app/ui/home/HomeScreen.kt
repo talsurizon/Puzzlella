@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -162,8 +163,10 @@ fun HomeScreen(
                     }
                 } else {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
                         SourceCard(
                             title = stringResource(R.string.source_gallery),
@@ -215,17 +218,23 @@ private fun SourceCard(
     Card(
         modifier = modifier
             .scale(scale)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(50),
+                ambientColor = Color.Gray.copy(alpha = 0.2f),
+                spotColor = Color.Gray.copy(alpha = 0.3f)
+            )
             .animateContentSize(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.15f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(50),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         onClick = onClick,
         interactionSource = interactionSource
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(vertical = 18.dp, horizontal = 28.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -233,12 +242,12 @@ private fun SourceCard(
                 imageVector = icon,
                 contentDescription = title,
                 tint = color,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(28.dp)
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = color
             )
         }
