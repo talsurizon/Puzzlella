@@ -268,7 +268,14 @@ private fun PuzzleBoardCanvas(
     viewModel: PuzzleViewModel,
     modifier: Modifier = Modifier
 ) {
-    var draggedId by remember { mutableStateOf<Int?>(null) }
+    // Cache ImageBitmaps — avoids re-wrapping Android Bitmap on every draw frame
+    val imageBitmaps = remember(uiState.pieces.size) {
+        uiState.pieces.associate { it.id to it.bitmap.asImageBitmap() }
+    }
+
+    // Local drag state — only invalidates the Canvas, bypasses ViewModel per-frame overhead
+    var activeDragId by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
 
     Canvas(
         modifier = modifier
@@ -282,32 +289,37 @@ private fun PuzzleBoardCanvas(
                             (offset.y - p.currentPosition.y) in 0f..p.height
                         }
                         piece?.let {
-                            draggedId = it.id
+                            activeDragId = it.id
+                            dragOffset = Offset.Zero
                             viewModel.onPieceDragStart(it.id)
                         }
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        draggedId?.let { id ->
-                            viewModel.onPieceDrag(id, Offset(dragAmount.x, dragAmount.y))
+                        if (activeDragId != null) {
+                            dragOffset += Offset(dragAmount.x, dragAmount.y)
                         }
                     },
                     onDragEnd = {
-                        draggedId?.let { id ->
+                        activeDragId?.let { id ->
+                            viewModel.onPieceDrag(id, dragOffset)
                             viewModel.onPieceDragEnd(id)
                         }
-                        draggedId = null
+                        activeDragId = null
+                        dragOffset = Offset.Zero
                     },
                     onDragCancel = {
-                        draggedId?.let { id ->
+                        activeDragId?.let { id ->
+                            viewModel.onPieceDrag(id, dragOffset)
                             viewModel.onPieceDragEnd(id)
                         }
-                        draggedId = null
+                        activeDragId = null
+                        dragOffset = Offset.Zero
                     }
                 )
             }
     ) {
-        // Draw board background using actual board dimensions
+        // Draw board background
         val boardW = uiState.boardWidth
         val boardH = uiState.boardHeight
         if (boardW > 0 && boardH > 0) {
@@ -321,12 +333,17 @@ private fun PuzzleBoardCanvas(
             )
         }
 
-        // Draw pieces
+        // Draw pieces — dragged piece uses local offset for smooth per-frame movement
         uiState.pieces.forEach { piece ->
-            val imageBitmap = piece.bitmap.asImageBitmap()
-            translate(piece.currentPosition.x, piece.currentPosition.y) {
+            val bitmap = imageBitmaps[piece.id] ?: return@forEach
+            val pos = if (piece.id == activeDragId) {
+                piece.currentPosition + dragOffset
+            } else {
+                piece.currentPosition
+            }
+            translate(pos.x, pos.y) {
                 drawImage(
-                    image = imageBitmap,
+                    image = bitmap,
                     dstSize = IntSize(piece.width.toInt(), piece.height.toInt())
                 )
             }
