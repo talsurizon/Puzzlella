@@ -14,6 +14,7 @@
     <string name="timer_label">זמן</string>
     <string name="moves_label">מהלכים</string>
     <string name="hint_label">רמז</string>
+    <string name="reset">איפוס</string>
     <string name="success_title">כל הכבוד! 🎉</string>
     <string name="success_message">סיימתם את הפאזל!</string>
     <string name="success_time">זמן: %1$s</string>

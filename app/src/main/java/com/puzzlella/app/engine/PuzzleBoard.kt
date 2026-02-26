@@ -90,6 +90,30 @@ class PuzzleBoard(
         return getGroupMembers(pieceId).map { it.id }.toSet()
     }
 
+    fun setMoves(value: Int) {
+        moves = value
+    }
+
+    fun markAsCompleted() {
+        _pieces.forEach { piece ->
+            piece.currentPosition = piece.correctPosition
+            piece.isLocked = true
+            groupParents[piece.id] = piece.id
+        }
+        isCompleted = true
+    }
+
+    fun resetPieces(areaWidth: Float, areaHeight: Float) {
+        _pieces.forEach { piece ->
+            piece.isLocked = false
+            piece.currentPosition = piece.correctPosition
+            groupParents[piece.id] = piece.id
+        }
+        moves = 0
+        isCompleted = false
+        shufflePieces(areaWidth, areaHeight)
+    }
+
     private fun findRoot(pieceId: Int): Int {
         val parent = groupParents[pieceId] ?: return pieceId
         if (parent == pieceId) return pieceId

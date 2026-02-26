@@ -82,14 +82,20 @@ fun PuzzlellaNavHost(windowSizeClass: WindowSizeClass) {
             route = Routes.PUZZLE,
             arguments = listOf(
                 navArgument("imagePath") { type = NavType.StringType },
-                navArgument("pieceCount") { type = NavType.IntType }
+                navArgument("pieceCount") { type = NavType.IntType },
+                navArgument("historyId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
             )
         ) { backStackEntry ->
             val imagePath = Uri.decode(backStackEntry.arguments?.getString("imagePath") ?: "")
             val pieceCount = backStackEntry.arguments?.getInt("pieceCount") ?: 12
+            val historyId = backStackEntry.arguments?.getLong("historyId") ?: -1L
             PuzzleScreen(
                 imagePath = imagePath,
                 pieceCount = pieceCount,
+                historyId = historyId,
                 windowSizeClass = windowSizeClass,
                 onBack = {
                     navController.popBackStack(Routes.HOME, inclusive = false)
@@ -104,8 +110,8 @@ fun PuzzlellaNavHost(windowSizeClass: WindowSizeClass) {
             HistoryScreen(
                 windowSizeClass = windowSizeClass,
                 onBack = { navController.popBackStack() },
-                onResumePuzzle = { imagePath, pieceCount ->
-                    navController.navigate(Routes.puzzle(imagePath, pieceCount))
+                onResumePuzzle = { historyId, imagePath, pieceCount ->
+                    navController.navigate(Routes.puzzle(imagePath, pieceCount, historyId))
                 }
             )
         }

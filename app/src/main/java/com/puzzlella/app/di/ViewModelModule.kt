@@ -11,5 +11,5 @@ val viewModelModule = module {
     viewModel { HomeViewModel(get()) }
     viewModel { HistoryViewModel(get()) }
     viewModel { PreviewViewModel() }
-    viewModel { params -> PuzzleViewModel(params.get(), params.get(), get(), get()) }
+    viewModel { params -> PuzzleViewModel(params.get(), params.get(), params.get(), get(), get()) }
 }

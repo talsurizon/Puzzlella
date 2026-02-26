@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,10 +75,11 @@ import org.koin.core.parameter.parametersOf
 fun PuzzleScreen(
     imagePath: String,
     pieceCount: Int,
+    historyId: Long = -1L,
     windowSizeClass: WindowSizeClass,
     onBack: () -> Unit,
     onNewPuzzle: () -> Unit,
-    viewModel: PuzzleViewModel = koinViewModel { parametersOf(imagePath, pieceCount) }
+    viewModel: PuzzleViewModel = koinViewModel { parametersOf(imagePath, pieceCount, historyId) }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val density = LocalDensity.current
@@ -141,6 +143,12 @@ fun PuzzleScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.resetPuzzle() }) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.reset)
+                        )
+                    }
                     IconToggleButton(
                         checked = uiState.showHint,
                         onCheckedChange = { viewModel.toggleHint() }

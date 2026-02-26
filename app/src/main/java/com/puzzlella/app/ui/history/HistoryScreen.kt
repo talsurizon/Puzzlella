@@ -68,7 +68,7 @@ import java.util.Locale
 fun HistoryScreen(
     windowSizeClass: WindowSizeClass,
     onBack: () -> Unit,
-    onResumePuzzle: (String, Int) -> Unit,
+    onResumePuzzle: (Long, String, Int) -> Unit,
     viewModel: HistoryViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -144,7 +144,7 @@ fun HistoryScreen(
                             time = viewModel.formatTime(puzzle.elapsedTimeMs),
                             date = formatDate(puzzle.dateStarted),
                             onResume = {
-                                onResumePuzzle(puzzle.imagePath, puzzle.pieceCount)
+                                onResumePuzzle(puzzle.id, puzzle.imagePath, puzzle.pieceCount)
                             },
                             onDelete = {
                                 viewModel.showDeleteConfirm(puzzle.id)

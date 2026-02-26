@@ -36,6 +36,7 @@ data class PuzzleUiState(
 class PuzzleViewModel(
     private val imagePath: String,
     private val pieceCount: Int,
+    private val resumedHistoryId: Long,
     private val puzzleRepository: PuzzleRepository,
     private val imageRepository: ImageRepository
 ) : ViewModel() {
@@ -48,23 +49,37 @@ class PuzzleViewModel(
     private var timerJob: Job? = null
     private var historyId: Long = -1
     private var startTime: Long = System.currentTimeMillis()
+    private var canvasWidth: Float = 0f
+    private var canvasHeight: Float = 0f
 
     fun initializePuzzle(canvasWidth: Float, canvasHeight: Float) {
         if (board != null) return
 
+        this.canvasWidth = canvasWidth
+        this.canvasHeight = canvasHeight
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
+            val existingHistory = if (resumedHistoryId > 0) {
+                puzzleRepository.getById(resumedHistoryId)
+            } else {
+                null
+            }
 
             // Save content URI to file, or use path directly
-            val savedPath = try {
-                val uri = android.net.Uri.parse(imagePath)
-                if (uri.scheme == "content" || uri.scheme == "file") {
-                    imageRepository.saveImage(uri)
-                } else {
+            val savedPath = if (existingHistory != null) {
+                existingHistory.imagePath
+            } else {
+                try {
+                    val uri = android.net.Uri.parse(imagePath)
+                    if (uri.scheme == "content" || uri.scheme == "file") {
+                        imageRepository.saveImage(uri)
+                    } else {
+                        imagePath
+                    }
+                } catch (e: Exception) {
                     imagePath
                 }
-            } catch (e: Exception) {
-                imagePath
             }
 
             val bitmap = BitmapFactory.decodeFile(savedPath) ?: return@launch
@@ -113,7 +128,44 @@ class PuzzleViewModel(
                 boardHeight = boardHeight
             )
 
+            if (existingHistory?.status == PuzzleStatus.COMPLETED) {
+                board?.markAsCompleted()
+                board?.setMoves(existingHistory.moves)
+                historyId = existingHistory.id
+                _uiState.value = _uiState.value.copy(
+                    pieces = board!!.pieces.toList(),
+                    isLoading = false,
+                    boardWidth = boardWidth,
+                    boardHeight = boardHeight,
+                    savedImagePath = savedPath,
+                    elapsedTimeMs = existingHistory.elapsedTimeMs,
+                    moves = existingHistory.moves,
+                    isCompleted = true,
+                    showSuccess = false
+                )
+                return@launch
+            }
+
             board?.shufflePieces(canvasWidth, canvasHeight)
+
+            if (existingHistory != null) {
+                historyId = existingHistory.id
+                board?.setMoves(existingHistory.moves)
+                startTime = System.currentTimeMillis() - existingHistory.elapsedTimeMs
+                _uiState.value = _uiState.value.copy(
+                    pieces = board!!.pieces.toList(),
+                    isLoading = false,
+                    boardWidth = boardWidth,
+                    boardHeight = boardHeight,
+                    savedImagePath = savedPath,
+                    elapsedTimeMs = existingHistory.elapsedTimeMs,
+                    moves = existingHistory.moves
+                )
+                startTimer()
+                return@launch
+            }
+
+            startTime = System.currentTimeMillis()
 
             _uiState.value = _uiState.value.copy(
                 pieces = board!!.pieces.toList(),
@@ -179,9 +231,42 @@ class PuzzleViewModel(
         return board?.getGroupPieceIds(pieceId) ?: emptySet()
     }
 
+    fun resetPuzzle() {
+        val b = board ?: return
+        if (canvasWidth <= 0f || canvasHeight <= 0f) return
+
+        b.resetPieces(canvasWidth, canvasHeight)
+        startTime = System.currentTimeMillis()
+        _uiState.value = _uiState.value.copy(
+            pieces = b.pieces.toList(),
+            elapsedTimeMs = 0,
+            moves = 0,
+            isCompleted = false,
+            showSuccess = false,
+            draggedPieceId = null
+        )
+        startTimer()
+
+        viewModelScope.launch {
+            if (historyId > 0) {
+                puzzleRepository.getById(historyId)?.let { history ->
+                    puzzleRepository.update(
+                        history.copy(
+                            status = PuzzleStatus.IN_PROGRESS,
+                            elapsedTimeMs = 0,
+                            moves = 0,
+                            dateStarted = startTime,
+                            dateCompleted = null
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     fun onPieceDragEnd(pieceId: Int) {
         board?.let { b ->
-            val snapped = b.trySnapPiece(pieceId)
+            b.trySnapPiece(pieceId)
             _uiState.value = _uiState.value.copy(
                 pieces = b.pieces.toList(),
                 moves = b.moves,
