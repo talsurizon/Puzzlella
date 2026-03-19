@@ -16,6 +16,7 @@ import com.puzzlella.app.ui.history.HistoryScreen
 import com.puzzlella.app.ui.home.HomeScreen
 import com.puzzlella.app.ui.preview.PreviewScreen
 import com.puzzlella.app.ui.puzzle.PuzzleScreen
+import com.puzzlella.app.ui.samples.SamplesScreen
 
 @Composable
 fun PuzzlellaNavHost(windowSizeClass: WindowSizeClass) {
@@ -58,6 +59,9 @@ fun PuzzlellaNavHost(windowSizeClass: WindowSizeClass) {
                 },
                 onHistoryClick = {
                     navController.navigate(Routes.HISTORY)
+                },
+                onSamplesClick = {
+                    navController.navigate(Routes.SAMPLES)
                 }
             )
         }
@@ -113,6 +117,16 @@ fun PuzzlellaNavHost(windowSizeClass: WindowSizeClass) {
                 onResumePuzzle = { historyId, imagePath, pieceCount ->
                     navController.navigate(Routes.puzzle(imagePath, pieceCount, historyId))
                 }
+            )
+        }
+
+        composable(Routes.SAMPLES) {
+            SamplesScreen(
+                windowSizeClass = windowSizeClass,
+                onImageReady = { savedPath ->
+                    navController.navigate(Routes.preview(savedPath))
+                },
+                onBack = { navController.popBackStack() }
             )
         }
     }

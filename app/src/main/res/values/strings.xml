@@ -26,6 +26,7 @@
     <string name="delete">מחיקה</string>
     <string name="no_history">אין עדיין היסטוריה</string>
     <string name="no_history_subtitle">התחילו פאזל חדש!</string>
+    <string name="no_samples">אין תמונות מובנות</string>
     <string name="completed">הושלם</string>
     <string name="in_progress">בתהליך</string>
     <string name="cancel">ביטול</string>

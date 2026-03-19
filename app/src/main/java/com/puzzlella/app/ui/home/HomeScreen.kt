@@ -65,7 +65,8 @@ import java.io.File
 fun HomeScreen(
     windowSizeClass: WindowSizeClass,
     onImageSelected: (Uri) -> Unit,
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    onSamplesClick: () -> Unit
 ) {
     val context = LocalContext.current
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -183,7 +184,7 @@ fun HomeScreen(
                             icon = Icons.Default.Image,
                             color = PrimaryLight,
                             modifier = Modifier.weight(1f),
-                            onClick = { /* Navigate to samples */ }
+                            onClick = onSamplesClick
                         )
                     }
                 } else {
@@ -212,7 +213,7 @@ fun HomeScreen(
                             icon = Icons.Default.Image,
                             color = PrimaryLight,
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { /* Navigate to samples */ }
+                            onClick = onSamplesClick
                         )
                     }
                 }
