@@ -10,14 +10,19 @@ import com.puzzlella.app.data.model.PuzzleStatus
 import com.puzzlella.app.data.repository.ImageRepository
 import com.puzzlella.app.data.repository.PuzzleRepository
 import com.puzzlella.app.engine.PuzzleBoard
+import com.puzzlella.app.engine.PuzzleBoardPieceState
 import com.puzzlella.app.engine.PuzzlePiece
 import com.puzzlella.app.engine.PuzzlePieceGenerator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class PuzzleUiState(
     val pieces: List<PuzzlePiece> = emptyList(),
@@ -51,9 +56,11 @@ class PuzzleViewModel(
     private var startTime: Long = System.currentTimeMillis()
     private var canvasWidth: Float = 0f
     private var canvasHeight: Float = 0f
+    private var isInitializing = false
 
     fun initializePuzzle(canvasWidth: Float, canvasHeight: Float) {
-        if (board != null) return
+        if (board != null || isInitializing) return
+        isInitializing = true
 
         this.canvasWidth = canvasWidth
         this.canvasHeight = canvasHeight
@@ -146,7 +153,12 @@ class PuzzleViewModel(
                 return@launch
             }
 
-            board?.shufflePieces(canvasWidth, canvasHeight)
+            val restoredFromHistory = existingHistory?.boardState
+                ?.let { deserializeBoardState(it) }
+                ?.let { states -> board?.restoreState(states) == true } == true
+            if (!restoredFromHistory) {
+                board?.shufflePieces(canvasWidth, canvasHeight)
+            }
 
             if (existingHistory != null) {
                 historyId = existingHistory.id
@@ -185,6 +197,7 @@ class PuzzleViewModel(
                     status = PuzzleStatus.IN_PROGRESS,
                     elapsedTimeMs = 0,
                     moves = 0,
+                    boardState = serializeCurrentBoardState(),
                     dateStarted = startTime
                 )
             )
@@ -255,6 +268,7 @@ class PuzzleViewModel(
                             status = PuzzleStatus.IN_PROGRESS,
                             elapsedTimeMs = 0,
                             moves = 0,
+                            boardState = serializeCurrentBoardState(),
                             dateStarted = startTime,
                             dateCompleted = null
                         )
@@ -276,6 +290,8 @@ class PuzzleViewModel(
 
             if (b.isCompleted) {
                 onPuzzleCompleted()
+            } else {
+                saveProgress()
             }
         }
     }
@@ -292,6 +308,7 @@ class PuzzleViewModel(
                             status = PuzzleStatus.COMPLETED,
                             elapsedTimeMs = _uiState.value.elapsedTimeMs,
                             moves = _uiState.value.moves,
+                            boardState = serializeCurrentBoardState(),
                             dateCompleted = System.currentTimeMillis()
                         )
                     )
@@ -320,18 +337,56 @@ class PuzzleViewModel(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
-        // Save progress
+        // viewModelScope is cancelled in onCleared, so use a standalone scope
+        CoroutineScope(Dispatchers.IO + NonCancellable).launch {
+            saveProgressSync()
+        }
+    }
+
+    private fun saveProgress() {
         viewModelScope.launch {
-            if (historyId > 0 && !_uiState.value.isCompleted) {
-                puzzleRepository.getById(historyId)?.let { history ->
-                    puzzleRepository.update(
-                        history.copy(
-                            elapsedTimeMs = _uiState.value.elapsedTimeMs,
-                            moves = _uiState.value.moves
-                        )
+            saveProgressSync()
+        }
+    }
+
+    private suspend fun saveProgressSync() {
+        if (historyId > 0 && !_uiState.value.isCompleted) {
+            puzzleRepository.getById(historyId)?.let { history ->
+                puzzleRepository.update(
+                    history.copy(
+                        elapsedTimeMs = System.currentTimeMillis() - startTime,
+                        moves = _uiState.value.moves,
+                        boardState = serializeCurrentBoardState()
                     )
-                }
+                )
             }
         }
+    }
+
+    private fun serializeCurrentBoardState(): String? {
+        val states = board?.exportState() ?: return null
+        return states.joinToString("|") { state ->
+            "${state.id},${state.currentX},${state.currentY},${if (state.isLocked) 1 else 0},${state.groupRootId},${state.zIndex}"
+        }
+    }
+
+    private fun deserializeBoardState(serialized: String): List<PuzzleBoardPieceState>? {
+        if (serialized.isBlank()) return emptyList()
+        val states = mutableListOf<PuzzleBoardPieceState>()
+        for (pieceState in serialized.split('|')) {
+            val parts = pieceState.split(',')
+            if (parts.size != 6) return null
+            states.add(
+                PuzzleBoardPieceState(
+                    id = parts[0].toIntOrNull() ?: return null,
+                    currentX = parts[1].toFloatOrNull() ?: return null,
+                    currentY = parts[2].toFloatOrNull() ?: return null,
+                    isLocked = (parts[3].toIntOrNull() ?: return null) == 1,
+                    groupRootId = parts[4].toIntOrNull() ?: return null,
+                    zIndex = parts[5].toIntOrNull() ?: return null
+                )
+            )
+        }
+        return states
     }
 }

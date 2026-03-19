@@ -1,5 +1,7 @@
 package com.puzzlella.app.ui.home
 
+import android.Manifest
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,7 +41,9 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -47,12 +51,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.puzzlella.app.R
 import com.puzzlella.app.ui.theme.*
+import java.io.File
 
 @Composable
 fun HomeScreen(
@@ -60,6 +67,9 @@ fun HomeScreen(
     onImageSelected: (Uri) -> Unit,
     onHistoryClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -67,10 +77,25 @@ fun HomeScreen(
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        // For camera, we'd need to save to file and get URI
-        // This is simplified — in production, use FileProvider
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            cameraImageUri?.let { onImageSelected(it) }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createCameraImageUri(context)
+            cameraImageUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
+
+    val launchCamera = {
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium
@@ -151,7 +176,7 @@ fun HomeScreen(
                             icon = Icons.Default.CameraAlt,
                             color = TertiaryLight,
                             modifier = Modifier.weight(1f),
-                            onClick = { /* Camera launch */ }
+                            onClick = launchCamera
                         )
                         SourceCard(
                             title = stringResource(R.string.source_samples),
@@ -180,7 +205,7 @@ fun HomeScreen(
                             icon = Icons.Default.CameraAlt,
                             color = TertiaryLight,
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { /* Camera launch */ }
+                            onClick = launchCamera
                         )
                         SourceCard(
                             title = stringResource(R.string.source_samples),
@@ -194,6 +219,16 @@ fun HomeScreen(
             }
         }
     }
+}
+
+private fun createCameraImageUri(context: Context): Uri {
+    val imageDir = File(context.cacheDir, "images").apply { mkdirs() }
+    val imageFile = File(imageDir, "camera_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        imageFile
+    )
 }
 
 @Composable

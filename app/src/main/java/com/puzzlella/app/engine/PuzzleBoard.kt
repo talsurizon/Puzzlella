@@ -4,6 +4,15 @@ import androidx.compose.ui.geometry.Offset
 import kotlin.math.abs
 import kotlin.random.Random
 
+data class PuzzleBoardPieceState(
+    val id: Int,
+    val currentX: Float,
+    val currentY: Float,
+    val isLocked: Boolean,
+    val groupRootId: Int,
+    val zIndex: Int
+)
+
 class PuzzleBoard(
     pieces: List<PuzzlePiece>,
     val rows: Int,
@@ -112,6 +121,44 @@ class PuzzleBoard(
         moves = 0
         isCompleted = false
         shufflePieces(areaWidth, areaHeight)
+    }
+
+    fun exportState(): List<PuzzleBoardPieceState> {
+        return _pieces.mapIndexed { index, piece ->
+            PuzzleBoardPieceState(
+                id = piece.id,
+                currentX = piece.currentPosition.x,
+                currentY = piece.currentPosition.y,
+                isLocked = piece.isLocked,
+                groupRootId = findRoot(piece.id),
+                zIndex = index
+            )
+        }
+    }
+
+    fun restoreState(states: List<PuzzleBoardPieceState>): Boolean {
+        if (states.size != _pieces.size) return false
+        val stateById = states.associateBy { it.id }
+        if (stateById.size != states.size) return false
+        if (_pieces.any { it.id !in stateById }) return false
+
+        val pieceById = _pieces.associateBy { it.id }
+        val orderedPieces = states.sortedBy { it.zIndex }.mapNotNull { pieceById[it.id] }
+        if (orderedPieces.size != _pieces.size) return false
+
+        _pieces.clear()
+        _pieces.addAll(orderedPieces)
+
+        val validIds = stateById.keys
+        _pieces.forEach { piece ->
+            val state = stateById[piece.id] ?: return false
+            piece.currentPosition = Offset(state.currentX, state.currentY)
+            piece.isLocked = state.isLocked
+            groupParents[piece.id] = if (state.groupRootId in validIds) state.groupRootId else piece.id
+        }
+
+        checkCompletion()
+        return true
     }
 
     private fun findRoot(pieceId: Int): Int {

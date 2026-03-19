@@ -32,6 +32,7 @@ class PuzzleRepository(private val dao: PuzzleHistoryDao) {
         status = PuzzleStatus.valueOf(status),
         elapsedTimeMs = elapsedTimeMs,
         moves = moves,
+        boardState = boardState,
         dateStarted = dateStarted,
         dateCompleted = dateCompleted
     )
@@ -44,6 +45,7 @@ class PuzzleRepository(private val dao: PuzzleHistoryDao) {
         status = status.name,
         elapsedTimeMs = elapsedTimeMs,
         moves = moves,
+        boardState = boardState,
         dateStarted = dateStarted,
         dateCompleted = dateCompleted
     )

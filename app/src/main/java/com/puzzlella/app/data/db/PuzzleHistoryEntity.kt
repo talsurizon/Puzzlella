@@ -13,6 +13,7 @@ data class PuzzleHistoryEntity(
     val status: String,
     val elapsedTimeMs: Long,
     val moves: Int,
+    val boardState: String? = null,
     val dateStarted: Long,
     val dateCompleted: Long? = null
 )
